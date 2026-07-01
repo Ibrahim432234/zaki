@@ -491,20 +491,30 @@ body {
   margin-top: 4px;
 }
 
+.group-hint {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 12px 0 4px;
+}
+
 .btn-undo {
+  width: 100%;
+  margin-top: 10px;
   border: 1.5px solid var(--border);
   background: var(--card);
   border-radius: 10px;
-  padding: 10px 16px;
+  padding: 12px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--muted);
   cursor: pointer;
   min-height: 44px;
 }
 
 .btn-undo:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  opacity: 0.35;
 }
 
 .toggle-auto {
