@@ -41,5 +41,6 @@ export function renderListView(tour, state, groups, filter = '') {
   return `
     <input class="list-search" type="search" placeholder="Suchen…" value="${escapeHtml(filter)}" id="list-search">
     ${rows || '<div class="empty-state">Keine Stopps gefunden</div>'}
+    <button class="btn-list-report" data-action="go-report">📊 Tour-Bericht</button>
   `;
 }

@@ -22,7 +22,7 @@ export function createInitialState(tourId) {
     navMode: localStorage.getItem('zaki_nav_mode') || 'group',
     selectMode: localStorage.getItem('zaki_select_mode') || 'auto',
     navProvider: localStorage.getItem('zaki_nav_provider') || 'google',
-    autoNav: localStorage.getItem('zaki_auto_nav') !== 'false',
+    autoNav: localStorage.getItem('zaki_auto_nav') === 'true',
     undoStack: [],
     showNotes: {},
   };

@@ -29,6 +29,13 @@ export function formatStopIds(stops) {
   return stops.map((s) => formatStopId(s.id));
 }
 
+/** Kompakt: „186-010 bis 186-150" */
+export function formatStopIdRange(stops) {
+  if (!stops.length) return '';
+  if (stops.length === 1) return formatStopId(stops[0].id);
+  return `${formatStopId(stops[0].id)} bis ${formatStopId(stops[stops.length - 1].id)}`;
+}
+
 export function fullAddress(stop) {
   return `${stop.street}, ${stop.plz} ${stop.city}, Deutschland`;
 }

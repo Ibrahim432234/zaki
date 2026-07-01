@@ -1,9 +1,9 @@
 import { renderTopbar, updateTopbar, startClock } from './components/topbar.js';
-import { renderNavView } from './components/navView.js';
+import { renderNavView, renderActionDock, getCurrentGroup } from './components/navView.js';
 import { renderListView } from './components/listView.js';
 import { renderReportView } from './components/reportView.js';
 import { groupStops } from './lib/groups.js';
-import { openNavigation } from './lib/maps.js';
+import { openNavigation, copyAddress } from './lib/maps.js';
 import { buildReportText, shareWhatsApp } from './lib/report.js';
 import { clearAllPhotos } from './lib/photoStorage.js';
 import {
@@ -14,8 +14,10 @@ import {
   jumpToGroup,
   stepNav,
   resetTour,
+  setSetting,
 } from './lib/state.js';
 import { loadTour, fullAddress } from './lib/tours.js';
+import { requestWakeLock, onVisibilityWakeLock } from './lib/wakeLock.js';
 import { confirmDialog, toast, vibrate } from './lib/utils.js';
 import { STATUS } from './lib/constants.js';
 
@@ -30,31 +32,52 @@ export class App {
     this.activeTab = 'nav';
     this.listFilter = '';
     this.reportText = '';
+    this.flashTimer = null;
   }
 
   async init() {
     this.render();
     startClock();
     this.bindEvents();
+    await requestWakeLock();
+    onVisibilityWakeLock(() => this.activeTab === 'nav');
+  }
+
+  isTourActive() {
+    return this.state.currentGroupIndex < this.groups.length;
   }
 
   render() {
+    const showDock = this.activeTab === 'nav' && this.isTourActive();
+    const group = getCurrentGroup(this.groups, this.state);
+
     this.root.innerHTML = `
       ${renderTopbar(this.tour, this.state, this.tour.stops.length)}
       <nav class="tabs">
         <button class="tab ${this.activeTab === 'nav' ? 'active' : ''}" data-tab="nav">Aktuell</button>
         <button class="tab ${this.activeTab === 'list' ? 'active' : ''}" data-tab="list">Liste</button>
-        <button class="tab ${this.activeTab === 'report' ? 'active' : ''}" data-tab="report">Bericht</button>
       </nav>
-      <main class="view ${this.activeTab === 'nav' ? 'active' : ''}" id="view-nav"></main>
-      <main class="view ${this.activeTab === 'list' ? 'active' : ''}" id="view-list"></main>
-      <main class="view ${this.activeTab === 'report' ? 'active' : ''}" id="view-report"></main>
+      <div class="content-area ${showDock ? 'has-dock' : ''}">
+        <main class="view ${this.activeTab === 'nav' ? 'active' : ''}" id="view-nav"></main>
+        <main class="view ${this.activeTab === 'list' ? 'active' : ''}" id="view-list"></main>
+        <main class="view ${this.activeTab === 'report' ? 'active' : ''}" id="view-report"></main>
+      </div>
+      <div id="dock-slot">${showDock ? renderActionDock(group, this.state) : ''}</div>
+      <div class="flash-overlay" id="flash-overlay" aria-hidden="true"></div>
     `;
     this.renderActiveView();
   }
 
   renderActiveView() {
     updateTopbar(this.tour, this.state, this.tour.stops.length);
+
+    const showDock = this.activeTab === 'nav' && this.isTourActive();
+    const group = getCurrentGroup(this.groups, this.state);
+    const dockSlot = document.getElementById('dock-slot');
+    const contentArea = document.querySelector('.content-area');
+
+    if (dockSlot) dockSlot.innerHTML = showDock ? renderActionDock(group, this.state) : '';
+    if (contentArea) contentArea.classList.toggle('has-dock', showDock);
 
     if (this.activeTab === 'nav') {
       document.getElementById('view-nav').innerHTML = renderNavView(this.tour, this.state, this.groups);
@@ -76,7 +99,12 @@ export class App {
     this.activeTab = tab;
     document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
     document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${tab}`));
+
+    if (tab === 'report' && !document.getElementById('view-report')?.innerHTML) {
+      // report view exists in DOM from render()
+    }
     this.renderActiveView();
+    if (tab === 'nav') requestWakeLock();
   }
 
   getActiveAddress() {
@@ -84,9 +112,19 @@ export class App {
     return group ? fullAddress(group.stops[0]) : null;
   }
 
+  flashSuccess() {
+    const el = document.getElementById('flash-overlay');
+    if (!el) return;
+    el.classList.add('show');
+    clearTimeout(this.flashTimer);
+    this.flashTimer = setTimeout(() => el.classList.remove('show'), 450);
+  }
+
   handleStopStatus(stopId, status) {
     vibrate();
     setStopStatus(this.state, stopId, status, this.groups, this.tour.stops);
+    if (status === STATUS.DELIVERED) this.flashSuccess();
+    toast(status === STATUS.DELIVERED ? '✓ Geliefert' : 'Nicht da');
     this.afterStatusChange();
   }
 
@@ -94,19 +132,21 @@ export class App {
     vibrate();
     const group = this.groups[this.state.currentGroupIndex];
     setGroupStatus(this.state, group, status, this.groups, this.tour.stops);
+    if (status === STATUS.DELIVERED) this.flashSuccess();
+    toast(status === STATUS.DELIVERED ? '✓ Alle geliefert' : 'Nicht da');
     this.afterStatusChange();
   }
 
   afterStatusChange() {
     this.renderActiveView();
+    if (!this.state.autoNav) return;
     const address = this.getActiveAddress();
-    if (address) {
-      setTimeout(() => openNavigation(address, 'google'), 400);
-    }
+    if (address) setTimeout(() => openNavigation(address, 'google'), 500);
   }
 
   onGoalChanged() {
     this.renderActiveView();
+    if (!this.state.autoNav) return;
     const address = this.getActiveAddress();
     if (address) openNavigation(address, 'google');
   }
@@ -121,6 +161,21 @@ export class App {
           openNavigation(btn.dataset.address, 'google');
           return;
         }
+        if (action === 'copy-address') {
+          copyAddress(btn.dataset.address).then((ok) => toast(ok ? 'Adresse kopiert' : 'Kopieren fehlgeschlagen'));
+          return;
+        }
+        if (action === 'toggle-ids') {
+          const detail = document.getElementById('id-detail');
+          const expanded = detail?.hidden;
+          if (detail) {
+            detail.hidden = !expanded;
+            detail.classList.toggle('is-collapsed', !expanded);
+          }
+          btn.setAttribute('aria-expanded', String(expanded));
+          return;
+        }
+        if (action === 'toggle-auto-nav') return;
         if (action === 'step-prev') {
           stepNav(this.state, 'prev', this.tour.stops, this.groups);
           this.onGoalChanged();
@@ -151,13 +206,20 @@ export class App {
           this.switchTab('nav');
           return;
         }
+        if (action === 'go-report') {
+          this.activeTab = 'report';
+          document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+          document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-report'));
+          this.renderActiveView();
+          return;
+        }
         if (action === 'reset-tour') {
           if (confirmDialog('Tour neu starten?')) {
             clearAllPhotos();
             this.state = resetTour(this.state);
             this.state.currentGroupIndex = 0;
             toast('Neu gestartet');
-            this.renderActiveView();
+            this.render();
           }
           return;
         }
@@ -169,6 +231,13 @@ export class App {
 
       const tab = e.target.closest('[data-tab]');
       if (tab) this.switchTab(tab.dataset.tab);
+    });
+
+    this.root.addEventListener('change', (e) => {
+      if (e.target.dataset.action === 'toggle-auto-nav') {
+        setSetting(this.state, 'autoNav', e.target.checked);
+        toast(e.target.checked ? 'Auto-Nav an' : 'Auto-Nav aus');
+      }
     });
 
     this.root.addEventListener('input', (e) => {
