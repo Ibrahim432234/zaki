@@ -31,6 +31,7 @@ export class App {
     this.settings = loadSettings();
     this.activeTab = 'nav';
     this.listFilter = '';
+    this.listStatusFilter = 'all';
     this.reportText = '';
     this.flashTimer = null;
   }
@@ -82,12 +83,7 @@ export class App {
     if (this.activeTab === 'nav') {
       document.getElementById('view-nav').innerHTML = renderNavView(this.tour, this.state, this.groups);
     } else if (this.activeTab === 'list') {
-      document.getElementById('view-list').innerHTML = renderListView(
-        this.tour,
-        this.state,
-        this.groups,
-        this.listFilter
-      );
+      this.refreshListView();
       document.querySelector('.list-row.is-active')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     } else if (this.activeTab === 'report') {
       document.getElementById('view-report').innerHTML = renderReportView(this.tour, this.state);
@@ -149,6 +145,23 @@ export class App {
     this.renderActiveView();
     const g = this.getActiveGroup();
     if (g) toast(g.name);
+  }
+
+  refreshListView() {
+    const input = document.getElementById('list-search');
+    const start = input?.selectionStart ?? null;
+    const hadFocus = document.activeElement === input;
+
+    document.getElementById('view-list').innerHTML = renderListView(this.tour, this.state, this.groups, {
+      search: this.listFilter,
+      statusFilter: this.listStatusFilter,
+    });
+
+    if (hadFocus) {
+      const next = document.getElementById('list-search');
+      next?.focus();
+      if (start != null && next) next.setSelectionRange(start, start);
+    }
   }
 
   async openSettings() {
@@ -218,6 +231,11 @@ export class App {
         this.switchTab('nav');
         return;
       }
+      if (action === 'list-filter') {
+        this.listStatusFilter = btn.dataset.filter;
+        this.refreshListView();
+        return;
+      }
       if (action === 'go-report') {
         this.activeTab = 'report';
         document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
@@ -250,12 +268,7 @@ export class App {
     this.root.addEventListener('input', (e) => {
       if (e.target.id === 'list-search') {
         this.listFilter = e.target.value;
-        document.getElementById('view-list').innerHTML = renderListView(
-          this.tour,
-          this.state,
-          this.groups,
-          this.listFilter
-        );
+        this.refreshListView();
       }
     });
   }

@@ -1,4 +1,10 @@
 import { STATUS_LABELS } from '../lib/constants.js';
+import {
+  LIST_FILTERS,
+  countByFilter,
+  filterStops,
+  groupIndexForStop,
+} from '../lib/listFilter.js';
 import { formatStopId } from '../lib/tours.js';
 import { escapeHtml } from '../lib/utils.js';
 
@@ -9,27 +15,34 @@ const STATUS_CLASS = {
   skipped: 'pill-muted',
 };
 
-export function renderListView(tour, state, groups, filter = '') {
-  const q = filter.toLowerCase();
+function renderFilterChips(statusFilter, counts) {
+  return LIST_FILTERS.map(({ id, label }) => {
+    const active = statusFilter === id ? ' active' : '';
+    const count = counts[id] ?? 0;
+    return `
+      <button type="button" class="filter-chip${active}" data-action="list-filter" data-filter="${id}">
+        ${label}<span class="filter-count">${count}</span>
+      </button>
+    `;
+  }).join('');
+}
 
-  const rows = tour.stops
-    .filter((stop) => {
-      if (!q) return true;
-      return (
-        stop.name.toLowerCase().includes(q) ||
-        stop.city.toLowerCase().includes(q) ||
-        stop.id.includes(q) ||
-        formatStopId(stop.id).includes(q)
-      );
-    })
-    .map((stop, si) => {
+export function renderListView(tour, state, groups, options = {}) {
+  const { search = '', statusFilter = 'all' } = options;
+  const counts = countByFilter(tour.stops, state, groups);
+  const filtered = filterStops(tour.stops, state, groups, { search, statusFilter });
+  const hasFilter = statusFilter !== 'all' || search.trim();
+
+  const rows = filtered
+    .map((stop) => {
       const st = state.statuses[stop.id];
-      const gi = groups.findIndex((g) => g.stops.some((s) => s.id === stop.id));
+      const gi = groupIndexForStop(groups, stop.id);
       const isCurrent = gi === state.currentGroupIndex && !st;
 
       let cls = 'list-row';
       if (isCurrent) cls += ' is-active';
       if (st?.status === 'delivered') cls += ' is-done';
+      if (st?.status === 'nothome') cls += ' is-nothome';
 
       const pill = st
         ? `<span class="pill ${STATUS_CLASS[st.status] || 'pill-muted'}">${STATUS_LABELS[st.status]}</span>`
@@ -52,10 +65,29 @@ export function renderListView(tour, state, groups, filter = '') {
     })
     .join('');
 
+  const statsText = hasFilter
+    ? `${filtered.length} von ${tour.stops.length} Stopps`
+  : `${tour.stops.length} Stopps · ${counts.open} offen · ${counts.delivered} zugestellt`;
+
+  const emptyMsg =
+    search.trim() && statusFilter !== 'all'
+      ? 'Keine Stopps für Suche und Filter'
+      : search.trim()
+        ? 'Keine Stopps für diese Suche'
+        : statusFilter === 'open'
+          ? 'Alle Stopps erledigt'
+          : 'Keine Stopps in diesem Filter';
+
   return `
-    <input class="list-search" type="search" placeholder="Kunde oder Nummer suchen…" value="${escapeHtml(filter)}" id="list-search">
-    <div class="list-stats">${tour.stops.length} Stopps gesamt</div>
-    <div class="list-rows">${rows || '<p class="empty">Keine Treffer</p>'}</div>
+    <div class="list-toolbar">
+      <input class="list-search" type="search" placeholder="Name, Straße, Stadt oder Nr. …"
+        value="${escapeHtml(search)}" id="list-search" autocomplete="off" enterkeyhint="search">
+      <div class="filter-chips" role="tablist" aria-label="Stopp-Filter">
+        ${renderFilterChips(statusFilter, counts)}
+      </div>
+      <div class="list-stats">${statsText}</div>
+    </div>
+    <div class="list-rows">${rows || `<p class="empty">${emptyMsg}</p>`}</div>
     <button type="button" class="btn-secondary btn-block" data-action="go-report">Tour-Bericht</button>
   `;
 }
