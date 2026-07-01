@@ -11,17 +11,17 @@ export function renderTopbar(tour, state, totalStops) {
       <div class="tb-left">
         <span class="tb-tour">${tour.name}</span>
         <span class="tb-count" id="tb-count">${
-          isComplete ? 'Tour abgeschlossen ✅' : `Stopp ${done + 1} von ${totalStops}`
+          isComplete ? 'Abgeschlossen' : `${done} / ${totalStops} Stopps`
         }</span>
       </div>
       <div class="tb-right">
+        <button type="button" class="tb-settings" data-action="open-settings" aria-label="Einstellungen">⚙</button>
         <span class="tb-time" id="clock">${formatClock()}</span>
-        <span class="tb-date" id="dateline">${formatDateLine()}</span>
       </div>
     </header>
     <div class="prog-wrap">
       <div class="prog-bar"><div class="prog-fill" id="pfill" style="width:${pct}%"></div></div>
-      <div class="prog-lbl" id="plbl">${done} von ${totalStops} erledigt</div>
+      <div class="prog-lbl" id="plbl">${pct}% · ${formatDateLine()}</div>
     </div>
   `;
 }
@@ -35,19 +35,15 @@ export function updateTopbar(tour, state, totalStops) {
   const fillEl = document.getElementById('pfill');
   const lblEl = document.getElementById('plbl');
 
-  if (countEl) {
-    countEl.textContent = isComplete ? 'Tour abgeschlossen ✅' : `Stopp ${done + 1} von ${totalStops}`;
-  }
+  if (countEl) countEl.textContent = isComplete ? 'Abgeschlossen' : `${done} / ${totalStops} Stopps`;
   if (fillEl) fillEl.style.width = `${pct}%`;
-  if (lblEl) lblEl.textContent = `${done} von ${totalStops} erledigt`;
+  if (lblEl) lblEl.textContent = `${pct}% · ${formatDateLine()}`;
 }
 
 export function startClock() {
   const tick = () => {
     const clock = document.getElementById('clock');
-    const date = document.getElementById('dateline');
     if (clock) clock.textContent = formatClock();
-    if (date) date.textContent = formatDateLine();
   };
   tick();
   setInterval(tick, 15000);

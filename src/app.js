@@ -2,10 +2,12 @@ import { renderTopbar, updateTopbar, startClock } from './components/topbar.js';
 import { renderNavView, renderActionDock, getCurrentGroup } from './components/navView.js';
 import { renderListView } from './components/listView.js';
 import { renderReportView } from './components/reportView.js';
+import { showConfirm, showSettingsSheet } from './components/modal.js';
 import { groupStops } from './lib/groups.js';
-import { askNavigation, copyAddress } from './lib/maps.js';
+import { requestNavigation, offerNavigationAfterDelivery, copyAddress } from './lib/maps.js';
 import { buildReportText, shareWhatsApp } from './lib/report.js';
 import { clearAllPhotos } from './lib/photoStorage.js';
+import { loadSettings, updateSetting } from './lib/settings.js';
 import {
   loadState,
   setStopStatus,
@@ -17,7 +19,7 @@ import {
 } from './lib/state.js';
 import { loadTour, fullAddress } from './lib/tours.js';
 import { requestWakeLock, onVisibilityWakeLock } from './lib/wakeLock.js';
-import { confirmDialog, toast, vibrate } from './lib/utils.js';
+import { toast, vibrate } from './lib/utils.js';
 import { STATUS } from './lib/constants.js';
 
 export class App {
@@ -26,8 +28,7 @@ export class App {
     this.tour = loadTour('tour-186');
     this.groups = groupStops(this.tour.stops);
     this.state = loadState(this.tour.id, this.groups, this.tour.stops);
-    this.state.navMode = 'group';
-    this.state.selectMode = 'auto';
+    this.settings = loadSettings();
     this.activeTab = 'nav';
     this.listFilter = '';
     this.reportText = '';
@@ -53,8 +54,8 @@ export class App {
     this.root.innerHTML = `
       ${renderTopbar(this.tour, this.state, this.tour.stops.length)}
       <nav class="tabs">
-        <button class="tab ${this.activeTab === 'nav' ? 'active' : ''}" data-tab="nav">Aktuell</button>
-        <button class="tab ${this.activeTab === 'list' ? 'active' : ''}" data-tab="list">Liste</button>
+        <button type="button" class="tab ${this.activeTab === 'nav' ? 'active' : ''}" data-tab="nav">Fahren</button>
+        <button type="button" class="tab ${this.activeTab === 'list' ? 'active' : ''}" data-tab="list">Stopps</button>
       </nav>
       <div class="content-area ${showDock ? 'has-dock' : ''}">
         <main class="view ${this.activeTab === 'nav' ? 'active' : ''}" id="view-nav"></main>
@@ -87,7 +88,7 @@ export class App {
         this.groups,
         this.listFilter
       );
-      document.querySelector('.list-item.is-current')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      document.querySelector('.list-row.is-active')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     } else if (this.activeTab === 'report') {
       document.getElementById('view-report').innerHTML = renderReportView(this.tour, this.state);
       this.reportText = buildReportText(this.tour, this.state.statuses, this.state.notes, this.state.startTime);
@@ -98,17 +99,17 @@ export class App {
     this.activeTab = tab;
     document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
     document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${tab}`));
-
-    if (tab === 'report' && !document.getElementById('view-report')?.innerHTML) {
-      // report view exists in DOM from render()
-    }
     this.renderActiveView();
     if (tab === 'nav') requestWakeLock();
   }
 
+  getActiveGroup() {
+    return this.groups[this.state.currentGroupIndex] ?? null;
+  }
+
   getActiveAddress() {
-    const group = this.groups[this.state.currentGroupIndex];
-    return group ? fullAddress(group.stops[0]) : null;
+    const g = this.getActiveGroup();
+    return g ? fullAddress(g.stops[0]) : null;
   }
 
   flashSuccess() {
@@ -116,122 +117,140 @@ export class App {
     if (!el) return;
     el.classList.add('show');
     clearTimeout(this.flashTimer);
-    this.flashTimer = setTimeout(() => el.classList.remove('show'), 450);
+    this.flashTimer = setTimeout(() => el.classList.remove('show'), 400);
   }
 
-  handleStopStatus(stopId, status) {
+  async handleStopStatus(stopId, status) {
     vibrate();
     setStopStatus(this.state, stopId, status, this.groups, this.tour.stops);
     if (status === STATUS.DELIVERED) this.flashSuccess();
-    toast(status === STATUS.DELIVERED ? '✓ Geliefert' : 'Nicht da');
-    this.afterStatusChange(status === STATUS.DELIVERED);
+    toast(status === STATUS.DELIVERED ? 'Zugestellt' : 'Nicht angetroffen');
+    await this.afterStatusChange(status === STATUS.DELIVERED);
   }
 
-  handleGroupStatus(status) {
+  async handleGroupStatus(status) {
     vibrate();
     const group = this.groups[this.state.currentGroupIndex];
     setGroupStatus(this.state, group, status, this.groups, this.tour.stops);
     if (status === STATUS.DELIVERED) this.flashSuccess();
-    toast(status === STATUS.DELIVERED ? '✓ Alle geliefert' : 'Nicht da');
-    this.afterStatusChange(status === STATUS.DELIVERED);
+    toast(status === STATUS.DELIVERED ? 'Alle zugestellt' : 'Nicht angetroffen');
+    await this.afterStatusChange(status === STATUS.DELIVERED);
   }
 
-  afterStatusChange(wasDelivered = false) {
+  async afterStatusChange(wasDelivered) {
     this.renderActiveView();
     if (!wasDelivered || !this.isTourActive()) return;
-    this.askNavigateToCurrent();
-  }
 
-  askNavigateToCurrent() {
-    const group = this.groups[this.state.currentGroupIndex];
+    const group = this.getActiveGroup();
     const address = this.getActiveAddress();
-    if (!address || !group) return;
-    askNavigation(address, group.name);
+    if (!group) return;
+
+    const offered = await offerNavigationAfterDelivery(address, group.name);
+    if (!offered) {
+      toast(`Nächster Stopp: ${group.name}`);
+    }
   }
 
   onStepChange() {
     this.renderActiveView();
+    const g = this.getActiveGroup();
+    if (g) toast(g.name);
+  }
+
+  async openSettings() {
+    await showSettingsSheet(this.settings, (key, value) => {
+      this.settings = updateSetting(key, value);
+    });
   }
 
   bindEvents() {
-    this.root.addEventListener('click', (e) => {
+    this.root.addEventListener('click', async (e) => {
       const btn = e.target.closest('[data-action]');
-      if (btn) {
-        const action = btn.dataset.action;
-
-        if (action === 'navigate') {
-          askNavigation(btn.dataset.address, btn.dataset.name);
-          return;
-        }
-        if (action === 'copy-address') {
-          copyAddress(btn.dataset.address).then((ok) => toast(ok ? 'Adresse kopiert' : 'Kopieren fehlgeschlagen'));
-          return;
-        }
-        if (action === 'toggle-ids') {
-          const detail = document.getElementById('id-detail');
-          const expanded = detail?.hidden;
-          if (detail) {
-            detail.hidden = !expanded;
-            detail.classList.toggle('is-collapsed', !expanded);
-          }
-          btn.setAttribute('aria-expanded', String(expanded));
-          return;
-        }
-        if (action === 'step-prev') {
-          stepNav(this.state, 'prev', this.tour.stops, this.groups);
-          this.onStepChange();
-          return;
-        }
-        if (action === 'step-next') {
-          stepNav(this.state, 'next', this.tour.stops, this.groups);
-          this.onStepChange();
-          return;
-        }
-        if (action === 'stop-status') {
-          this.handleStopStatus(btn.dataset.stop, btn.dataset.status);
-          return;
-        }
-        if (action === 'group-status') {
-          this.handleGroupStatus(btn.dataset.status);
-          return;
-        }
-        if (action === 'undo') {
-          if (undo(this.state, this.groups, this.tour.stops)) {
-            toast('Rückgängig');
-            this.renderActiveView();
-          }
-          return;
-        }
-        if (action === 'jump-group') {
-          jumpToGroup(this.state, parseInt(btn.dataset.group, 10), this.tour.stops, this.groups);
-          this.switchTab('nav');
-          return;
-        }
-        if (action === 'go-report') {
-          this.activeTab = 'report';
-          document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
-          document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-report'));
-          this.renderActiveView();
-          return;
-        }
-        if (action === 'reset-tour') {
-          if (confirmDialog('Tour neu starten?')) {
-            clearAllPhotos();
-            this.state = resetTour(this.state);
-            this.state.currentGroupIndex = 0;
-            toast('Neu gestartet');
-            this.render();
-          }
-          return;
-        }
-        if (action === 'share-whatsapp') {
-          shareWhatsApp(this.reportText);
-          return;
-        }
+      if (!btn) {
+        const tab = e.target.closest('[data-tab]');
+        if (tab) this.switchTab(tab.dataset.tab);
+        return;
       }
 
-      const tab = e.target.closest('[data-tab]');
-      if (tab) this.switchTab(tab.dataset.tab);
+      const action = btn.dataset.action;
+
+      if (action === 'open-settings') {
+        await this.openSettings();
+        return;
+      }
+      if (action === 'navigate') {
+        await requestNavigation(btn.dataset.address, btn.dataset.name);
+        return;
+      }
+      if (action === 'copy-address') {
+        copyAddress(btn.dataset.address).then((ok) => toast(ok ? 'Adresse kopiert' : 'Fehler beim Kopieren'));
+        return;
+      }
+      if (action === 'toggle-ids') {
+        const detail = document.getElementById('id-detail');
+        if (detail) {
+          detail.hidden = !detail.hidden;
+          btn.setAttribute('aria-expanded', String(!detail.hidden));
+        }
+        return;
+      }
+      if (action === 'step-prev') {
+        stepNav(this.state, 'prev', this.tour.stops, this.groups);
+        this.onStepChange();
+        return;
+      }
+      if (action === 'step-next') {
+        stepNav(this.state, 'next', this.tour.stops, this.groups);
+        this.onStepChange();
+        return;
+      }
+      if (action === 'stop-status') {
+        await this.handleStopStatus(btn.dataset.stop, btn.dataset.status);
+        return;
+      }
+      if (action === 'group-status') {
+        await this.handleGroupStatus(btn.dataset.status);
+        return;
+      }
+      if (action === 'undo') {
+        if (undo(this.state, this.groups, this.tour.stops)) {
+          toast('Rückgängig');
+          this.renderActiveView();
+        }
+        return;
+      }
+      if (action === 'jump-group') {
+        jumpToGroup(this.state, parseInt(btn.dataset.group, 10), this.tour.stops, this.groups);
+        this.switchTab('nav');
+        return;
+      }
+      if (action === 'go-report') {
+        this.activeTab = 'report';
+        document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+        document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-report'));
+        this.renderActiveView();
+        return;
+      }
+      if (action === 'reset-tour') {
+        const ok = await showConfirm({
+          title: 'Tour neu starten',
+          body: 'Alle Fortschritte werden gelöscht.',
+          confirmLabel: 'Neu starten',
+          cancelLabel: 'Abbrechen',
+        });
+        if (ok) {
+          clearAllPhotos();
+          this.state = resetTour(this.state);
+          this.state.currentGroupIndex = 0;
+          toast('Tour neu gestartet');
+          this.render();
+        }
+        return;
+      }
+      if (action === 'share-whatsapp') {
+        shareWhatsApp(this.reportText);
+        return;
+      }
     });
 
     this.root.addEventListener('input', (e) => {
