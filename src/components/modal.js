@@ -57,10 +57,6 @@ export function showSettingsSheet(settings, onChange) {
           <span>Vor Navigation nachfragen</span>
           <input type="checkbox" data-setting="askBeforeNav" ${settings.askBeforeNav ? 'checked' : ''}>
         </label>
-        <label class="sheet-switch">
-          <span>Nach Lieferung Route anbieten</span>
-          <input type="checkbox" data-setting="askAfterDelivery" ${settings.askAfterDelivery ? 'checked' : ''}>
-        </label>
         <p class="sheet-label">Navigations-App</p>
         <div class="sheet-chips">
           <button type="button" class="chip ${settings.navProvider === 'google' ? 'active' : ''}" data-setting-nav="google">Google Maps</button>

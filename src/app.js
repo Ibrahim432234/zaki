@@ -4,7 +4,7 @@ import { renderListView } from './components/listView.js';
 import { renderReportView } from './components/reportView.js';
 import { showConfirm, showSettingsSheet } from './components/modal.js';
 import { groupStops } from './lib/groups.js';
-import { requestNavigation, offerNavigationAfterDelivery, copyAddress } from './lib/maps.js';
+import { requestNavigation, copyAddress } from './lib/maps.js';
 import { buildReportText, shareWhatsApp } from './lib/report.js';
 import { clearAllPhotos } from './lib/photoStorage.js';
 import { loadSettings, updateSetting } from './lib/settings.js';
@@ -142,13 +142,7 @@ export class App {
     if (!wasDelivered || !this.isTourActive()) return;
 
     const group = this.getActiveGroup();
-    const address = this.getActiveAddress();
-    if (!group) return;
-
-    const offered = await offerNavigationAfterDelivery(address, group.name);
-    if (!offered) {
-      toast(`Nächster Stopp: ${group.name}`);
-    }
+    if (group) toast(`Nächster Stopp: ${group.name}`);
   }
 
   onStepChange() {

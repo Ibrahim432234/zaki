@@ -42,11 +42,16 @@ export function renderNavView(tour, state, groups) {
           <span class="job-label">Aktueller Stopp</span>
           <span class="job-seq">${seq} / ${groups.length}</span>
         </div>
-        <div class="job-step-btns">
-          <button type="button" class="icon-btn" data-action="step-prev" ${atStart ? 'disabled' : ''} aria-label="Vorheriger Stopp">‹</button>
-          <button type="button" class="icon-btn" data-action="step-next" ${atEnd ? 'disabled' : ''} aria-label="Nächster Stopp">›</button>
-        </div>
       </header>
+      <div class="step-nav-bar">
+        <button type="button" class="step-btn" data-action="step-prev" ${atStart ? 'disabled' : ''}>
+          Zurück
+        </button>
+        <span class="step-nav-hint">Stopp wechseln</span>
+        <button type="button" class="step-btn" data-action="step-next" ${atEnd ? 'disabled' : ''}>
+          Weiter
+        </button>
+      </div>
 
       ${renderIdLine(group)}
 

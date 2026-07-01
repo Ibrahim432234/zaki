@@ -36,22 +36,6 @@ export async function requestNavigation(address, label) {
   return ok;
 }
 
-export async function offerNavigationAfterDelivery(address, label) {
-  const settings = loadSettings();
-  if (!settings.askAfterDelivery || !address) return false;
-
-  const name = label || address.split(',')[0];
-  const ok = await showConfirm({
-    title: 'Nächster Stopp',
-    body: `Möchtest du jetzt zu „${name}" navigieren?`,
-    confirmLabel: 'Ja, navigieren',
-    cancelLabel: 'Nein, danke',
-  });
-
-  if (ok) openNavigation(address, settings.navProvider);
-  return ok;
-}
-
 export async function copyAddress(address) {
   try {
     await navigator.clipboard.writeText(address);

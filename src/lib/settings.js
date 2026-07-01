@@ -2,7 +2,6 @@ const KEY = 'zaki_settings';
 
 const DEFAULTS = {
   askBeforeNav: true,
-  askAfterDelivery: false,
   navProvider: 'google',
 };
 

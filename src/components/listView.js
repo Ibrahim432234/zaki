@@ -1,5 +1,5 @@
 import { STATUS_LABELS } from '../lib/constants.js';
-import { formatStopId, fullAddress } from '../lib/tours.js';
+import { formatStopId } from '../lib/tours.js';
 import { escapeHtml } from '../lib/utils.js';
 
 const STATUS_CLASS = {
@@ -47,10 +47,6 @@ export function renderListView(tour, state, groups, filter = '') {
             </div>
             ${pill}
           </div>
-          <button type="button" class="list-route" data-action="navigate"
-            data-address="${escapeHtml(fullAddress(stop))}" data-name="${escapeHtml(stop.name)}">
-            Route
-          </button>
         </div>
       `;
     })
