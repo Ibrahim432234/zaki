@@ -14,6 +14,7 @@ import {
   copyText,
   downloadFile,
 } from './lib/report.js';
+import { getActiveStop, syncAutoPosition } from './lib/navigation.js';
 import {
   loadState,
   setStopStatus,
@@ -21,6 +22,8 @@ import {
   setNote,
   undo,
   jumpToGroup,
+  jumpToStop,
+  stepNav,
   resetTour,
   setSetting,
   exportState,
@@ -35,7 +38,7 @@ export class App {
     this.root = root;
     this.tour = loadTour('tour-186');
     this.groups = groupStops(this.tour.stops);
-    this.state = loadState(this.tour.id, this.groups);
+    this.state = loadState(this.tour.id, this.groups, this.tour.stops);
     this.activeTab = 'nav';
     this.listFilter = '';
     this.position = null;
@@ -74,6 +77,7 @@ export class App {
       el.innerHTML = renderNavView(this.tour, this.state, this.groups, this.distanceInfo);
       this.bindSwipeOnCard();
       this.loadPhotoHints();
+      this.scrollPickerToCurrent();
     } else if (this.activeTab === 'list') {
       document.getElementById('view-list').innerHTML = renderListView(
         this.tour,
@@ -89,6 +93,13 @@ export class App {
     }
   }
 
+  scrollPickerToCurrent() {
+    setTimeout(() => {
+      const current = document.querySelector('.picker-item.is-current');
+      current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 60);
+  }
+
   switchTab(tab) {
     this.activeTab = tab;
     document.querySelectorAll('.tab').forEach((t) => {
@@ -100,12 +111,17 @@ export class App {
     this.renderActiveView();
   }
 
+  getActiveAddress() {
+    const stop = getActiveStop(this.state, this.tour.stops, this.groups);
+    return stop ? fullAddress(stop) : null;
+  }
+
   async refreshGps() {
     try {
       this.position = await getCurrentPosition();
-      const group = this.groups[this.state.currentGroupIndex];
-      if (group) {
-        this.distanceInfo = await getDistanceToAddress(fullAddress(group.stops[0]), this.position);
+      const address = this.getActiveAddress();
+      if (address) {
+        this.distanceInfo = await getDistanceToAddress(address, this.position);
         const badge = document.querySelector('.distance-badge');
         if (badge && this.distanceInfo) {
           badge.textContent = `📍 ${this.distanceInfo.formatted} · ca. ${this.distanceInfo.eta} Min.`;
@@ -118,21 +134,27 @@ export class App {
 
   bindSwipeOnCard() {
     const card = document.getElementById('swipe-card');
-    if (!card || this.state.currentGroupIndex >= this.groups.length) return;
+    if (!card) return;
 
     const group = this.groups[this.state.currentGroupIndex];
+    const stop = this.tour.stops[this.state.currentStopIndex];
+
     bindSwipe(card, {
       onRight: () => {
-        if (group.stops.length === 1) {
+        if (this.state.navMode === 'single' && stop) {
+          this.handleStopStatus(stop.id, STATUS.DELIVERED);
+        } else if (group?.stops.length === 1) {
           this.handleStopStatus(group.stops[0].id, STATUS.DELIVERED);
-        } else {
+        } else if (group) {
           this.handleGroupStatus(STATUS.DELIVERED);
         }
       },
       onLeft: () => {
-        if (group.stops.length === 1) {
+        if (this.state.navMode === 'single' && stop) {
+          this.handleStopStatus(stop.id, STATUS.NOT_HOME);
+        } else if (group?.stops.length === 1) {
           this.handleStopStatus(group.stops[0].id, STATUS.NOT_HOME);
-        } else {
+        } else if (group) {
           this.handleGroupStatus(STATUS.NOT_HOME);
         }
       },
@@ -140,9 +162,8 @@ export class App {
   }
 
   async loadPhotoHints() {
-    const group = this.groups[this.state.currentGroupIndex];
-    if (!group || group.stops.length !== 1) return;
-    const stop = group.stops[0];
+    const stop = getActiveStop(this.state, this.tour.stops, this.groups);
+    if (!stop) return;
     const hint = document.getElementById(`photo-hint-${stop.id}`);
     if (hint) {
       const photo = await getPhoto(stop.id);
@@ -152,14 +173,20 @@ export class App {
 
   handleStopStatus(stopId, status) {
     vibrate();
-    setStopStatus(this.state, stopId, status, this.groups);
+    setStopStatus(this.state, stopId, status, this.groups, this.tour.stops);
+    if (this.state.selectMode === 'manual') {
+      toast('Stopp erledigt — wähle nächsten');
+    }
     this.afterStatusChange();
   }
 
   handleGroupStatus(status) {
     vibrate();
     const group = this.groups[this.state.currentGroupIndex];
-    setGroupStatus(this.state, group, status, this.groups);
+    setGroupStatus(this.state, group, status, this.groups, this.tour.stops);
+    if (this.state.selectMode === 'manual') {
+      toast('Gruppe erledigt — wähle nächste');
+    }
     this.afterStatusChange();
   }
 
@@ -167,13 +194,11 @@ export class App {
     this.renderActiveView();
     this.refreshGps();
 
-    if (this.state.autoNav && this.state.currentGroupIndex < this.groups.length) {
-      setTimeout(() => {
-        const group = this.groups[this.state.currentGroupIndex];
-        if (group) {
-          openNavigation(fullAddress(group.stops[0]), this.state.navProvider);
-        }
-      }, 400);
+    if (this.state.autoNav) {
+      const address = this.getActiveAddress();
+      if (address) {
+        setTimeout(() => openNavigation(address, this.state.navProvider), 400);
+      }
     }
   }
 
@@ -197,6 +222,43 @@ export class App {
         this.renderActiveView();
         return;
       }
+      if (action === 'set-nav-mode') {
+        setSetting(this.state, 'navMode', btn.dataset.mode);
+        toast(btn.dataset.mode === 'group' ? 'Gruppen-Ansicht' : 'Einzel-Ansicht');
+        this.renderActiveView();
+        return;
+      }
+      if (action === 'set-select-mode') {
+        setSetting(this.state, 'selectMode', btn.dataset.mode);
+        if (btn.dataset.mode === 'auto') {
+          syncAutoPosition(this.state, this.tour.stops, this.groups);
+        }
+        toast(btn.dataset.mode === 'auto' ? 'Automatische Auswahl' : 'Manuelle Auswahl');
+        this.renderActiveView();
+        return;
+      }
+      if (action === 'pick-group') {
+        jumpToGroup(this.state, parseInt(btn.dataset.index, 10), this.tour.stops, this.groups);
+        if (this.activeTab !== 'nav') this.switchTab('nav');
+        else this.renderActiveView();
+        return;
+      }
+      if (action === 'pick-stop') {
+        jumpToStop(this.state, parseInt(btn.dataset.index, 10), this.tour.stops, this.groups);
+        if (this.activeTab !== 'nav') this.switchTab('nav');
+        else this.renderActiveView();
+        return;
+      }
+      if (action === 'step-prev') {
+        stepNav(this.state, 'prev', this.tour.stops, this.groups);
+        this.renderActiveView();
+        return;
+      }
+      if (action === 'step-next') {
+        stepNav(this.state, 'next', this.tour.stops, this.groups);
+        this.renderActiveView();
+        return;
+      }
       if (action === 'stop-status') {
         this.handleStopStatus(btn.dataset.stop, btn.dataset.status);
         return;
@@ -206,14 +268,19 @@ export class App {
         return;
       }
       if (action === 'undo') {
-        if (undo(this.state, this.groups)) {
+        if (undo(this.state, this.groups, this.tour.stops)) {
           toast('Rückgängig');
           this.renderActiveView();
         }
         return;
       }
       if (action === 'jump-group') {
-        jumpToGroup(this.state, parseInt(btn.dataset.group, 10));
+        jumpToGroup(this.state, parseInt(btn.dataset.group, 10), this.tour.stops, this.groups);
+        this.switchTab('nav');
+        return;
+      }
+      if (action === 'jump-stop') {
+        jumpToStop(this.state, parseInt(btn.dataset.stop, 10), this.tour.stops, this.groups);
         this.switchTab('nav');
         return;
       }
@@ -273,7 +340,7 @@ export class App {
         if (!file) return;
         const text = await file.text();
         try {
-          this.state = importState(this.tour.id, text, this.groups);
+          this.state = importState(this.tour.id, text, this.groups, this.tour.stops);
           toast('Fortschritt importiert');
           this.renderActiveView();
         } catch {

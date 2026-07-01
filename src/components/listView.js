@@ -1,4 +1,5 @@
 import { STATUS_LABELS } from '../lib/constants.js';
+import { isGroupCurrent } from '../lib/navigation.js';
 import { fullAddress } from '../lib/tours.js';
 import { escapeHtml } from '../lib/utils.js';
 
@@ -6,25 +7,29 @@ export function renderListView(tour, state, groups, filter = '') {
   const q = filter.toLowerCase();
   const items = [];
 
-  groups.forEach((group, gi) => {
-    group.stops.forEach((stop, si) => {
-      const match =
-        !q ||
-        stop.name.toLowerCase().includes(q) ||
-        stop.city.toLowerCase().includes(q) ||
-        stop.id.includes(q) ||
-        stop.street.toLowerCase().includes(q);
+  tour.stops.forEach((stop, si) => {
+    const group = groups.find((g) => g.stops.some((s) => s.id === stop.id));
+    const match =
+      !q ||
+      stop.name.toLowerCase().includes(q) ||
+      stop.city.toLowerCase().includes(q) ||
+      stop.id.includes(q) ||
+      stop.street.toLowerCase().includes(q);
 
-      if (match) {
-        items.push({ stop, gi, si, group });
-      }
-    });
+    if (match) {
+      items.push({ stop, si, group });
+    }
   });
 
   const rows = items
-    .map(({ stop, gi, group }) => {
+    .map(({ stop, si, group }) => {
       const st = state.statuses[stop.id];
-      const isCurrent = gi === state.currentGroupIndex && !st;
+      const gi = groups.indexOf(group);
+      const isCurrent =
+        state.navMode === 'single'
+          ? state.currentStopIndex === si
+          : isGroupCurrent(state, gi) && !st;
+
       let cls = '';
       if (st?.status === 'delivered' || st?.status === 'partial') cls = 'is-done';
       else if (st?.status === 'nothome') cls = 'is-nothome';
@@ -49,11 +54,11 @@ export function renderListView(tour, state, groups, filter = '') {
         : '';
 
       return `
-        <div class="list-item ${cls}" data-action="jump-group" data-group="${gi}">
+        <div class="list-item ${cls}" data-action="jump-stop" data-stop="${si}">
           <div class="list-num">${icon}</div>
           <div class="list-info">
             <div class="list-name">${escapeHtml(stop.name)} <span class="list-id">${stop.id}</span></div>
-            <div class="list-addr">${escapeHtml(group.address)}</div>
+            <div class="list-addr">${escapeHtml(group?.address || '')}</div>
             ${stLbl}
           </div>
           <button class="list-nav-btn" data-action="navigate" data-address="${escapeHtml(fullAddress(stop))}">🗺️</button>
@@ -64,7 +69,7 @@ export function renderListView(tour, state, groups, filter = '') {
 
   return `
     <input class="list-search" type="search" placeholder="🔍 Suchen…" value="${escapeHtml(filter)}" id="list-search">
-    <div class="list-meta">${items.length} von ${tour.stops.length} Stopps</div>
+    <div class="list-meta">${items.length} von ${tour.stops.length} Stopps · ${state.navMode === 'group' ? 'Gruppen' : 'Einzel'}-Modus</div>
     ${rows || '<div class="empty-state">Keine Stopps gefunden</div>'}
   `;
 }
