@@ -86,15 +86,19 @@ function renderNavButtons(state, tour, groups) {
       ? state.currentStopIndex >= maxIdx
       : state.currentGroupIndex >= maxIdx;
 
+  const posLabel =
+    state.navMode === 'single'
+      ? `Stopp ${state.currentStopIndex + 1} / ${tour.stops.length}`
+      : `Gruppe ${state.currentGroupIndex + 1} / ${groups.length}`;
+
   return `
-    <div class="step-nav">
-      <button class="btn-step" data-action="step-prev" ${atStart ? 'disabled' : ''}>← Zurück</button>
-      <span class="step-pos">${
-        state.navMode === 'single'
-          ? `${state.currentStopIndex + 1} / ${tour.stops.length}`
-          : `${state.currentGroupIndex + 1} / ${groups.length} Gruppen`
-      }</span>
-      <button class="btn-step" data-action="step-next" ${atEnd ? 'disabled' : ''}>Weiter →</button>
+    <div class="step-nav" aria-label="Ziel wechseln">
+      <button class="btn-step btn-step-lg" data-action="step-prev" ${atStart ? 'disabled' : ''} aria-label="Vorheriges Ziel">← Zurück</button>
+      <div class="step-center">
+        <span class="step-label">Ziel wechseln</span>
+        <span class="step-pos">${posLabel}</span>
+      </div>
+      <button class="btn-step btn-step-lg" data-action="step-next" ${atEnd ? 'disabled' : ''} aria-label="Nächstes Ziel">Weiter →</button>
     </div>
   `;
 }
@@ -174,7 +178,7 @@ export function renderNavView(tour, state, groups, distanceInfo) {
 
   return `
     ${renderModeBar(state)}
-    ${state.selectMode === 'manual' ? renderNavButtons(state, tour, groups) : ''}
+    ${renderNavButtons(state, tour, groups)}
     <div class="stop-card" id="swipe-card">
       <div class="stop-badge">📍 ${badgeId}</div>
       <div class="stop-name">${escapeHtml(displayName || '')}</div>
@@ -194,6 +198,10 @@ export function renderNavView(tour, state, groups, distanceInfo) {
         <button class="btn-chip ${state.navProvider === 'waze' ? 'active' : ''}" data-action="set-nav" data-provider="waze">Waze</button>
       </div>
       ${isMulti ? multiHtml : renderSingleStopActions(displayStop, state)}
+      <div class="goal-nav-row">
+        <button class="btn-goal" data-action="step-prev" ${state.navMode === 'single' ? (state.currentStopIndex <= 0 ? 'disabled' : '') : (state.currentGroupIndex <= 0 ? 'disabled' : '')}>← Vorheriges Ziel</button>
+        <button class="btn-goal btn-goal-next" data-action="step-next" ${state.navMode === 'single' ? (state.currentStopIndex >= tour.stops.length - 1 ? 'disabled' : '') : (state.currentGroupIndex >= groups.length - 1 ? 'disabled' : '')}>Nächstes Ziel →</button>
+      </div>
       <div class="swipe-hint">← Nicht da &nbsp;|&nbsp; Geliefert →</div>
     </div>
     ${

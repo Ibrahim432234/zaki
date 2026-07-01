@@ -202,6 +202,18 @@ export class App {
     }
   }
 
+  onGoalChanged() {
+    this.renderActiveView();
+    this.refreshGps();
+    toast('Ziel gewechselt');
+    if (this.state.autoNav) {
+      const address = this.getActiveAddress();
+      if (address) {
+        setTimeout(() => openNavigation(address, this.state.navProvider), 300);
+      }
+    }
+  }
+
   bindEvents() {
     this.root.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
@@ -240,23 +252,23 @@ export class App {
       if (action === 'pick-group') {
         jumpToGroup(this.state, parseInt(btn.dataset.index, 10), this.tour.stops, this.groups);
         if (this.activeTab !== 'nav') this.switchTab('nav');
-        else this.renderActiveView();
+        else this.onGoalChanged();
         return;
       }
       if (action === 'pick-stop') {
         jumpToStop(this.state, parseInt(btn.dataset.index, 10), this.tour.stops, this.groups);
         if (this.activeTab !== 'nav') this.switchTab('nav');
-        else this.renderActiveView();
+        else this.onGoalChanged();
         return;
       }
       if (action === 'step-prev') {
         stepNav(this.state, 'prev', this.tour.stops, this.groups);
-        this.renderActiveView();
+        this.onGoalChanged();
         return;
       }
       if (action === 'step-next') {
         stepNav(this.state, 'next', this.tour.stops, this.groups);
-        this.renderActiveView();
+        this.onGoalChanged();
         return;
       }
       if (action === 'stop-status') {

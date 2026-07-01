@@ -903,22 +903,28 @@ body {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 0.75rem;
-  background: var(--card);
-  border: 1.5px solid var(--border);
-  border-radius: 12px;
-  padding: 8px 10px;
+  background: var(--blue);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: 0 3px 12px rgba(26, 86, 219, 0.25);
 }
 
 .btn-step {
   border: none;
-  background: var(--blue-lt);
-  color: var(--blue-txt);
-  border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 13px;
-  font-weight: 700;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--blue);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 800;
   cursor: pointer;
-  min-height: 44px;
+  min-height: 48px;
+  flex-shrink: 0;
+}
+
+.btn-step-lg {
+  min-width: 88px;
+  font-size: 15px;
 }
 
 .btn-step:disabled {
@@ -926,11 +932,58 @@ body {
   cursor: not-allowed;
 }
 
-.step-pos {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted);
+.step-center {
+  flex: 1;
   text-align: center;
+  padding: 0 4px;
+}
+
+.step-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.step-pos {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  margin-top: 2px;
+}
+
+.goal-nav-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn-goal {
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--sub);
+  border-radius: 12px;
+  padding: 12px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 48px;
+}
+
+.btn-goal-next {
+  background: var(--blue-lt);
+  color: var(--blue-txt);
+  border-color: var(--blue);
+  font-weight: 800;
+}
+
+.btn-goal:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 /* PICKER */
