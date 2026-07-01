@@ -616,10 +616,39 @@ body {
   text-overflow: ellipsis;
 }
 
+.stop-id-tag {
+  display: inline-block;
+  background: var(--blue-lt);
+  color: var(--blue-txt);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin: 2px;
+}
+
+.stop-ids {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.stop-badge {
+  display: inline-block;
+  background: var(--blue-lt);
+  color: var(--blue-txt);
+  font-size: 14px;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
 .list-id {
-  font-size: 11px;
-  color: var(--muted);
-  font-weight: 600;
+  font-size: 12px;
+  color: var(--blue-txt);
+  font-weight: 800;
 }
 
 .list-addr {

@@ -3,16 +3,18 @@ import { groupStops, findCurrentGroupIndex, isGroupComplete, getStats } from '..
 
 const sampleStops = [
   { id: '1', name: 'A', street: 'Str 1', plz: '12345', city: 'X' },
-  { id: '2', name: 'A', street: 'Str 1', plz: '12345', city: 'X' },
-  { id: '3', name: 'B', street: 'Str 2', plz: '12345', city: 'X' },
+  { id: '2', group: 'kunde-a', name: 'A', street: 'Str 1', plz: '12345', city: 'X' },
+  { id: '3', group: 'kunde-a', name: 'A', street: 'Str 2', plz: '99999', city: 'Y' },
+  { id: '4', name: 'B', street: 'Str 2', plz: '12345', city: 'X' },
 ];
 
 describe('groupStops', () => {
-  it('gruppiert aufeinanderfolgende gleiche Adressen', () => {
+  it('gruppiert nur Stopps mit gleichem group-Feld', () => {
     const groups = groupStops(sampleStops);
-    expect(groups).toHaveLength(2);
-    expect(groups[0].stops).toHaveLength(2);
-    expect(groups[1].stops).toHaveLength(1);
+    expect(groups).toHaveLength(3);
+    expect(groups[0].stops).toHaveLength(1);
+    expect(groups[1].stops).toHaveLength(2);
+    expect(groups[2].stops).toHaveLength(1);
   });
 });
 
@@ -20,7 +22,7 @@ describe('findCurrentGroupIndex', () => {
   it('findet erste unvollständige Gruppe', () => {
     const groups = groupStops(sampleStops);
     const statuses = { 1: { status: 'delivered' } };
-    expect(findCurrentGroupIndex(groups, statuses)).toBe(0);
+    expect(findCurrentGroupIndex(groups, statuses)).toBe(1);
   });
 
   it('gibt groups.length zurück wenn alles erledigt', () => {
@@ -29,8 +31,9 @@ describe('findCurrentGroupIndex', () => {
       1: { status: 'delivered' },
       2: { status: 'delivered' },
       3: { status: 'delivered' },
+      4: { status: 'delivered' },
     };
-    expect(findCurrentGroupIndex(groups, statuses)).toBe(2);
+    expect(findCurrentGroupIndex(groups, statuses)).toBe(3);
   });
 });
 
@@ -51,7 +54,7 @@ describe('getStats', () => {
 describe('isGroupComplete', () => {
   it('erkennt vollständige Gruppe', () => {
     const groups = groupStops(sampleStops);
-    const statuses = { 1: { status: 'delivered' }, 2: { status: 'delivered' } };
-    expect(isGroupComplete(groups[0], statuses)).toBe(true);
+    const statuses = { 2: { status: 'delivered' }, 3: { status: 'delivered' } };
+    expect(isGroupComplete(groups[1], statuses)).toBe(true);
   });
 });

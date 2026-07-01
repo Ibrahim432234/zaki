@@ -18,6 +18,17 @@ export function formatAddress(stop) {
   return `${stop.street}, ${stop.plz} ${stop.city}`;
 }
 
+export function formatStopId(id) {
+  if (/^186\d{3,4}$/.test(id)) {
+    return `186-${id.slice(3)}`;
+  }
+  return id;
+}
+
+export function formatStopIds(stops) {
+  return stops.map((s) => formatStopId(s.id));
+}
+
 export function fullAddress(stop) {
   return `${stop.street}, ${stop.plz} ${stop.city}, Deutschland`;
 }

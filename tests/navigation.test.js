@@ -4,8 +4,9 @@ import { groupStops } from '../src/lib/groups.js';
 
 const sampleStops = [
   { id: '1', name: 'A', street: 'Str 1', plz: '12345', city: 'X', type: 'T' },
-  { id: '2', name: 'A', street: 'Str 1', plz: '12345', city: 'X', type: 'T' },
-  { id: '3', name: 'B', street: 'Str 2', plz: '12345', city: 'X', type: 'T' },
+  { id: '2', group: 'kunde-a', name: 'A', street: 'Str 1', plz: '12345', city: 'X', type: 'T' },
+  { id: '3', group: 'kunde-a', name: 'A', street: 'Str 2', plz: '99999', city: 'Y', type: 'T' },
+  { id: '4', name: 'B', street: 'Str 2', plz: '12345', city: 'X', type: 'T' },
 ];
 
 describe('findCurrentStopIndex', () => {
@@ -19,8 +20,9 @@ describe('findCurrentStopIndex', () => {
         1: { status: 'delivered' },
         2: { status: 'delivered' },
         3: { status: 'delivered' },
+        4: { status: 'delivered' },
       })
-    ).toBe(3);
+    ).toBe(4);
   });
 });
 
@@ -36,6 +38,6 @@ describe('stopIndexForGroup', () => {
   const groups = groupStops(sampleStops);
 
   it('mappt Gruppe auf ersten Stopp', () => {
-    expect(stopIndexForGroup(sampleStops, groups[1])).toBe(2);
+    expect(stopIndexForGroup(sampleStops, groups[1])).toBe(1);
   });
 });

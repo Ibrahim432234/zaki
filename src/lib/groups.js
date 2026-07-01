@@ -1,15 +1,15 @@
 import { formatAddress } from './tours.js';
 
-export function addressKey(stop) {
-  return `${stop.name}|${stop.street}|${stop.plz}|${stop.city}`.toLowerCase();
+function groupKey(stop) {
+  return stop.group ? `g:${stop.group}` : `id:${stop.id}`;
 }
 
-/** Gruppiert aufeinanderfolgende Stopps mit gleicher Adresse. */
+/** Gruppiert nur Stopps mit gleichem group-Feld (z. B. 186-010…150 = ein Kunde). */
 export function groupStops(stops) {
   const groups = [];
 
   for (const stop of stops) {
-    const key = addressKey(stop);
+    const key = groupKey(stop);
     const last = groups[groups.length - 1];
 
     if (last && last.key === key) {

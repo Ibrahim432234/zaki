@@ -1,5 +1,5 @@
 import { STATUS_LABELS } from '../lib/constants.js';
-import { fullAddress } from '../lib/tours.js';
+import { formatStopId, fullAddress } from '../lib/tours.js';
 import { escapeHtml } from '../lib/utils.js';
 
 export function renderListView(tour, state, groups, filter = '') {
@@ -28,7 +28,7 @@ export function renderListView(tour, state, groups, filter = '') {
         <div class="list-item ${cls}" data-action="jump-group" data-group="${gi}">
           <div class="list-num">${si + 1}</div>
           <div class="list-info">
-            <div class="list-name">${escapeHtml(stop.name)}</div>
+            <div class="list-name">${escapeHtml(stop.name)} <span class="list-id">${formatStopId(stop.id)}</span></div>
             <div class="list-addr">${escapeHtml(stop.street)}, ${escapeHtml(stop.city)}</div>
             ${st ? `<div class="list-status">${STATUS_LABELS[st.status]}</div>` : ''}
           </div>

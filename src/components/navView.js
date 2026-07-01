@@ -1,5 +1,5 @@
 import { STATUS } from '../lib/constants.js';
-import { fullAddress } from '../lib/tours.js';
+import { formatStopId, formatStopIds, fullAddress } from '../lib/tours.js';
 import { escapeHtml } from '../lib/utils.js';
 
 function renderStepNav(state, groups) {
@@ -11,6 +11,16 @@ function renderStepNav(state, groups) {
       <button class="btn-step" data-action="step-prev" ${atStart ? 'disabled' : ''}>← Zurück</button>
       <span class="step-pos">${state.currentGroupIndex + 1} / ${groups.length}</span>
       <button class="btn-step" data-action="step-next" ${atEnd ? 'disabled' : ''}>Weiter →</button>
+    </div>
+  `;
+}
+
+function renderIdList(stops) {
+  return `
+    <div class="stop-ids">
+      ${formatStopIds(stops)
+        .map((nr) => `<span class="stop-id-tag">${nr}</span>`)
+        .join('')}
     </div>
   `;
 }
@@ -34,7 +44,7 @@ export function renderNavView(tour, state, groups) {
 
   const statusHtml = isMulti
     ? `
-      <p class="group-hint">${group.stops.length} Lieferungen hier</p>
+      <p class="group-hint">Ein Kunde · ${group.stops.length} Lieferungen</p>
       <div class="status-row">
         <button class="btn-status btn-delivered btn-lg" data-action="group-status" data-status="${STATUS.DELIVERED}">✅ Alle geliefert</button>
         <button class="btn-status btn-not-home btn-lg" data-action="group-status" data-status="${STATUS.NOT_HOME}">❌ Nicht da</button>
@@ -50,7 +60,7 @@ export function renderNavView(tour, state, groups) {
   return `
     ${renderStepNav(state, groups)}
     <div class="stop-card">
-      <div class="stop-badge">${isMulti ? `${group.stops.length}× ` : ''}${stop.id}</div>
+      ${isMulti ? renderIdList(group.stops) : `<div class="stop-badge">${formatStopId(stop.id)}</div>`}
       <div class="stop-name">${escapeHtml(group.name)}</div>
       <div class="stop-addr-box">
         <span class="pin-icon">📍</span>
