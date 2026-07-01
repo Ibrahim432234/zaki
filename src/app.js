@@ -3,7 +3,7 @@ import { renderNavView, renderActionDock, getCurrentGroup } from './components/n
 import { renderListView } from './components/listView.js';
 import { renderReportView } from './components/reportView.js';
 import { groupStops } from './lib/groups.js';
-import { openNavigation, copyAddress } from './lib/maps.js';
+import { askNavigation, copyAddress } from './lib/maps.js';
 import { buildReportText, shareWhatsApp } from './lib/report.js';
 import { clearAllPhotos } from './lib/photoStorage.js';
 import {
@@ -14,7 +14,6 @@ import {
   jumpToGroup,
   stepNav,
   resetTour,
-  setSetting,
 } from './lib/state.js';
 import { loadTour, fullAddress } from './lib/tours.js';
 import { requestWakeLock, onVisibilityWakeLock } from './lib/wakeLock.js';
@@ -125,7 +124,7 @@ export class App {
     setStopStatus(this.state, stopId, status, this.groups, this.tour.stops);
     if (status === STATUS.DELIVERED) this.flashSuccess();
     toast(status === STATUS.DELIVERED ? '✓ Geliefert' : 'Nicht da');
-    this.afterStatusChange();
+    this.afterStatusChange(status === STATUS.DELIVERED);
   }
 
   handleGroupStatus(status) {
@@ -134,21 +133,24 @@ export class App {
     setGroupStatus(this.state, group, status, this.groups, this.tour.stops);
     if (status === STATUS.DELIVERED) this.flashSuccess();
     toast(status === STATUS.DELIVERED ? '✓ Alle geliefert' : 'Nicht da');
-    this.afterStatusChange();
+    this.afterStatusChange(status === STATUS.DELIVERED);
   }
 
-  afterStatusChange() {
+  afterStatusChange(wasDelivered = false) {
     this.renderActiveView();
-    if (!this.state.autoNav) return;
-    const address = this.getActiveAddress();
-    if (address) setTimeout(() => openNavigation(address, 'google'), 500);
+    if (!wasDelivered || !this.isTourActive()) return;
+    this.askNavigateToCurrent();
   }
 
-  onGoalChanged() {
-    this.renderActiveView();
-    if (!this.state.autoNav) return;
+  askNavigateToCurrent() {
+    const group = this.groups[this.state.currentGroupIndex];
     const address = this.getActiveAddress();
-    if (address) openNavigation(address, 'google');
+    if (!address || !group) return;
+    askNavigation(address, group.name);
+  }
+
+  onStepChange() {
+    this.renderActiveView();
   }
 
   bindEvents() {
@@ -158,7 +160,7 @@ export class App {
         const action = btn.dataset.action;
 
         if (action === 'navigate') {
-          openNavigation(btn.dataset.address, 'google');
+          askNavigation(btn.dataset.address, btn.dataset.name);
           return;
         }
         if (action === 'copy-address') {
@@ -175,15 +177,14 @@ export class App {
           btn.setAttribute('aria-expanded', String(expanded));
           return;
         }
-        if (action === 'toggle-auto-nav') return;
         if (action === 'step-prev') {
           stepNav(this.state, 'prev', this.tour.stops, this.groups);
-          this.onGoalChanged();
+          this.onStepChange();
           return;
         }
         if (action === 'step-next') {
           stepNav(this.state, 'next', this.tour.stops, this.groups);
-          this.onGoalChanged();
+          this.onStepChange();
           return;
         }
         if (action === 'stop-status') {
@@ -231,13 +232,6 @@ export class App {
 
       const tab = e.target.closest('[data-tab]');
       if (tab) this.switchTab(tab.dataset.tab);
-    });
-
-    this.root.addEventListener('change', (e) => {
-      if (e.target.dataset.action === 'toggle-auto-nav') {
-        setSetting(this.state, 'autoNav', e.target.checked);
-        toast(e.target.checked ? 'Auto-Nav an' : 'Auto-Nav aus');
-      }
     });
 
     this.root.addEventListener('input', (e) => {

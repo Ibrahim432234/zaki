@@ -1184,6 +1184,14 @@ body {
   opacity: 0.92;
 }
 
+.step-hint {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  margin: -0.25rem 0 0.75rem;
+  font-weight: 600;
+}
+
 .auto-nav-toggle {
   display: flex;
   align-items: center;

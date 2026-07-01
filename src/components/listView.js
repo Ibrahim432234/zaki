@@ -32,7 +32,7 @@ export function renderListView(tour, state, groups, filter = '') {
             <div class="list-addr">${escapeHtml(stop.street)}, ${escapeHtml(stop.city)}</div>
             ${st ? `<div class="list-status">${STATUS_LABELS[st.status]}</div>` : ''}
           </div>
-          <button class="list-nav-btn" data-action="navigate" data-address="${escapeHtml(fullAddress(stop))}">🗺️</button>
+          <button class="list-nav-btn" data-action="navigate" data-address="${escapeHtml(fullAddress(stop))}" data-name="${escapeHtml(stop.name)}">🗺️</button>
         </div>
       `;
     })

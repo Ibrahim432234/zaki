@@ -12,6 +12,7 @@ function renderStepNav(state, groups) {
       <span class="step-pos">${state.currentGroupIndex + 1} / ${groups.length}</span>
       <button class="btn-step" data-action="step-next" ${atEnd ? 'disabled' : ''}>Weiter →</button>
     </div>
+    <p class="step-hint">Zurück/Weiter wechselt nur den Stopp — Maps nur auf Anfrage</p>
   `;
 }
 
@@ -50,10 +51,6 @@ export function renderNavView(tour, state, groups) {
 
   return `
     ${renderStepNav(state, groups)}
-    <label class="auto-nav-toggle">
-      <input type="checkbox" data-action="toggle-auto-nav" ${state.autoNav ? 'checked' : ''}>
-      <span>Maps nach „Geliefert" automatisch öffnen</span>
-    </label>
     <div class="stop-card" id="stop-card">
       ${renderIdBadge(group)}
       <div class="stop-name">${escapeHtml(group.name)}</div>
@@ -62,7 +59,7 @@ export function renderNavView(tour, state, groups) {
         <span>${escapeHtml(group.address)}</span>
         <span class="addr-hint">Tippen zum Kopieren</span>
       </button>
-      <button class="btn-nav" data-action="navigate" data-address="${escapeHtml(address)}">🗺️ Navigation starten</button>
+      <button class="btn-nav" data-action="navigate" data-address="${escapeHtml(address)}" data-name="${escapeHtml(group.name)}">🗺️ Navigation starten</button>
     </div>
     <button class="btn-undo" data-action="undo" ${state.undoStack.length ? '' : 'disabled'}>↩ Rückgängig</button>
   `;
